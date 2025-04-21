@@ -10,7 +10,6 @@ const previewNumbers = document.getElementById('preview-numbers');
 const previewGridView = document.getElementById('preview-grid-view');
 const previewTitle = document.getElementById('preview-title');
 const previewToggle = document.getElementById('preview-toggle');
-const gridPreview = document.getElementById('grid-preview');
 const gridRows = document.getElementById('grid-rows');
 const gridCols = document.getElementById('grid-cols');
 const zoneName = document.getElementById('zone-name');
@@ -26,8 +25,6 @@ let currentTheme = localStorage.getItem('theme') || 'light';
 addZoneBtn.addEventListener('click', showZoneCreationArea);
 cancelCreateBtn.addEventListener('click', hideZoneCreationArea);
 createZoneBtn.addEventListener('click', handleCreateZone);
-gridRows.addEventListener('input', updateGridPreview);
-gridCols.addEventListener('input', updateGridPreview);
 document.querySelector('.close-btn').addEventListener('click', hidePreviewOverlay);
 previewToggle.addEventListener('click', togglePreviewMode);
 themeToggle.addEventListener('click', toggleTheme);
@@ -47,9 +44,6 @@ function initialize() {
 
   // Hide preview overlay
   hidePreviewOverlay();
-
-  // Initialize grid preview
-  updateGridPreview();
 
   // Load saved zones
   loadFromLocalStorage();
@@ -121,24 +115,6 @@ function hideZoneCreationArea() {
   zoneName.value = '';
   gridRows.value = '3';
   gridCols.value = '3';
-  updateGridPreview();
-}
-
-/**
- * Update the grid preview based on input dimensions
- */
-function updateGridPreview() {
-  const rows = parseInt(gridRows.value) || 3;
-  const cols = parseInt(gridCols.value) || 3;
-
-  gridPreview.innerHTML = '';
-  gridPreview.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
-
-  for (let i = 0; i < rows * cols; i++) {
-    const cell = document.createElement('div');
-    cell.className = 'preview-cell';
-    gridPreview.appendChild(cell);
-  }
 }
 
 /**
@@ -348,6 +324,7 @@ function updateZoneCounts() {
 function showZonePreview(zone) {
   const zoneName = zone.querySelector('h2').textContent;
   const availableSlots = zone.querySelectorAll('.slot.available');
+  // We need both available and occupied slots for the grid view
   const grid = zone.querySelector('.grid');
 
   // Set title
@@ -357,47 +334,32 @@ function showZonePreview(zone) {
   previewNumbers.innerHTML = '';
   previewGridView.innerHTML = '';
 
-  // Handle empty state
-  if (availableSlots.length === 0) {
-    const message = document.createElement('p');
-    message.textContent = 'No available parking slots in this zone.';
-    message.style.textAlign = 'center';
-    message.style.padding = '2rem';
-    message.style.color = 'var(--text-muted)';
+  // Create numbers preview (just a big number showing available slots count)
+  const bigNumber = document.createElement('div');
+  bigNumber.className = 'big-number';
+  bigNumber.textContent = availableSlots.length;
+  previewNumbers.appendChild(bigNumber);
 
-    previewNumbers.appendChild(message.cloneNode(true));
-    previewGridView.appendChild(message.cloneNode(true));
-  } else {
-    // Create numbers preview (just the available slots)
-    availableSlots.forEach(slot => {
+  // Create grid preview (full grid structure with both available and occupied slots)
+  previewGridView.style.gridTemplateColumns = grid.style.gridTemplateColumns;
+
+  // Get all cells from the original grid
+  const cells = Array.from(grid.querySelectorAll('.cell'));
+
+  cells.forEach(cell => {
+    const cellClone = document.createElement('div');
+    cellClone.className = 'cell';
+
+    const slot = cell.querySelector('.slot');
+    if (slot) {
       const slotClone = document.createElement('div');
-      slotClone.className = 'slot available';
+      slotClone.className = slot.className; // Copy all classes including available/occupied
       slotClone.textContent = slot.textContent;
-      previewNumbers.appendChild(slotClone);
-    });
+      cellClone.appendChild(slotClone);
+    }
 
-    // Create grid preview (full grid structure)
-    // Clone the grid structure but only show available slots
-    previewGridView.style.gridTemplateColumns = grid.style.gridTemplateColumns;
-
-    // Get all cells from the original grid
-    const cells = Array.from(grid.querySelectorAll('.cell'));
-
-    cells.forEach(cell => {
-      const cellClone = document.createElement('div');
-      cellClone.className = 'cell';
-
-      const slot = cell.querySelector('.slot');
-      if (slot && slot.classList.contains('available')) {
-        const slotClone = document.createElement('div');
-        slotClone.className = 'slot available';
-        slotClone.textContent = slot.textContent;
-        cellClone.appendChild(slotClone);
-      }
-
-      previewGridView.appendChild(cellClone);
-    });
-  }
+    previewGridView.appendChild(cellClone);
+  });
 
   // Show the appropriate preview based on current mode
   if (currentPreviewMode === 'numbers') {
