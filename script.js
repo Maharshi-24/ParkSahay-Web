@@ -6,14 +6,21 @@ const zoneCreationArea = document.getElementById('zone-creation-area');
 const zonesDisplay = document.getElementById('zones-display');
 const parkingContainer = document.getElementById('parking-container');
 const previewOverlay = document.getElementById('preview-overlay');
-const previewGrid = document.getElementById('preview-grid');
+const previewNumbers = document.getElementById('preview-numbers');
+const previewGridView = document.getElementById('preview-grid-view');
 const previewTitle = document.getElementById('preview-title');
+const previewToggle = document.getElementById('preview-toggle');
 const gridPreview = document.getElementById('grid-preview');
 const gridRows = document.getElementById('grid-rows');
 const gridCols = document.getElementById('grid-cols');
 const zoneName = document.getElementById('zone-name');
 const createZoneBtn = document.getElementById('create-zone-btn');
 const cancelCreateBtn = document.getElementById('cancel-create');
+const themeToggle = document.getElementById('theme-toggle');
+
+// State variables
+let currentPreviewMode = 'numbers'; // 'numbers' or 'grid'
+let currentTheme = localStorage.getItem('theme') || 'light';
 
 // Event Listeners
 addZoneBtn.addEventListener('click', showZoneCreationArea);
@@ -22,6 +29,8 @@ createZoneBtn.addEventListener('click', handleCreateZone);
 gridRows.addEventListener('input', updateGridPreview);
 gridCols.addEventListener('input', updateGridPreview);
 document.querySelector('.close-btn').addEventListener('click', hidePreviewOverlay);
+previewToggle.addEventListener('click', togglePreviewMode);
+themeToggle.addEventListener('click', toggleTheme);
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', initialize);
@@ -30,6 +39,9 @@ document.addEventListener('DOMContentLoaded', initialize);
  * Initialize the application
  */
 function initialize() {
+  // Apply saved theme
+  applyTheme(currentTheme);
+
   // Hide creation area initially
   hideZoneCreationArea();
 
@@ -41,6 +53,52 @@ function initialize() {
 
   // Load saved zones
   loadFromLocalStorage();
+}
+
+/**
+ * Toggle between light and dark themes
+ */
+function toggleTheme() {
+  currentTheme = currentTheme === 'light' ? 'dark' : 'light';
+  applyTheme(currentTheme);
+  localStorage.setItem('theme', currentTheme);
+}
+
+/**
+ * Apply the specified theme to the document
+ * @param {string} theme - The theme to apply ('light' or 'dark')
+ */
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+
+  // Update theme toggle icon
+  const themeIcon = themeToggle.querySelector('.material-symbols-rounded');
+  if (theme === 'dark') {
+    themeIcon.textContent = 'light_mode';
+    themeToggle.title = 'Switch to Light Mode';
+  } else {
+    themeIcon.textContent = 'dark_mode';
+    themeToggle.title = 'Switch to Dark Mode';
+  }
+}
+
+/**
+ * Toggle between preview modes (numbers or grid)
+ */
+function togglePreviewMode() {
+  currentPreviewMode = currentPreviewMode === 'numbers' ? 'grid' : 'numbers';
+
+  if (currentPreviewMode === 'numbers') {
+    previewNumbers.classList.remove('hidden');
+    previewGridView.classList.add('hidden');
+    previewToggle.querySelector('.material-symbols-rounded').textContent = 'grid_view';
+    previewToggle.title = 'Switch to Grid View';
+  } else {
+    previewNumbers.classList.add('hidden');
+    previewGridView.classList.remove('hidden');
+    previewToggle.querySelector('.material-symbols-rounded').textContent = 'format_list_numbered';
+    previewToggle.title = 'Switch to Numbers View';
+  }
 }
 
 /**
@@ -290,26 +348,67 @@ function updateZoneCounts() {
 function showZonePreview(zone) {
   const zoneName = zone.querySelector('h2').textContent;
   const availableSlots = zone.querySelectorAll('.slot.available');
+  const grid = zone.querySelector('.grid');
 
+  // Set title
   previewTitle.textContent = `${zoneName} - ${availableSlots.length} Available Slots`;
-  previewGrid.innerHTML = '';
 
+  // Clear previous previews
+  previewNumbers.innerHTML = '';
+  previewGridView.innerHTML = '';
+
+  // Handle empty state
   if (availableSlots.length === 0) {
     const message = document.createElement('p');
     message.textContent = 'No available parking slots in this zone.';
     message.style.textAlign = 'center';
     message.style.padding = '2rem';
-    message.style.color = '#777';
-    previewGrid.appendChild(message);
+    message.style.color = 'var(--text-muted)';
+
+    previewNumbers.appendChild(message.cloneNode(true));
+    previewGridView.appendChild(message.cloneNode(true));
   } else {
+    // Create numbers preview (just the available slots)
     availableSlots.forEach(slot => {
       const slotClone = document.createElement('div');
       slotClone.className = 'slot available';
       slotClone.textContent = slot.textContent;
-      previewGrid.appendChild(slotClone);
+      previewNumbers.appendChild(slotClone);
+    });
+
+    // Create grid preview (full grid structure)
+    // Clone the grid structure but only show available slots
+    previewGridView.style.gridTemplateColumns = grid.style.gridTemplateColumns;
+
+    // Get all cells from the original grid
+    const cells = Array.from(grid.querySelectorAll('.cell'));
+
+    cells.forEach(cell => {
+      const cellClone = document.createElement('div');
+      cellClone.className = 'cell';
+
+      const slot = cell.querySelector('.slot');
+      if (slot && slot.classList.contains('available')) {
+        const slotClone = document.createElement('div');
+        slotClone.className = 'slot available';
+        slotClone.textContent = slot.textContent;
+        cellClone.appendChild(slotClone);
+      }
+
+      previewGridView.appendChild(cellClone);
     });
   }
 
+  // Show the appropriate preview based on current mode
+  if (currentPreviewMode === 'numbers') {
+    previewNumbers.classList.remove('hidden');
+    previewGridView.classList.add('hidden');
+  } else {
+    previewNumbers.classList.add('hidden');
+    previewGridView.classList.remove('hidden');
+  }
+
+  // Show the overlay
   previewOverlay.classList.remove('hidden');
 }
 

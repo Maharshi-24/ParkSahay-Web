@@ -17,6 +17,9 @@
       <p>Your Parking Solution</p>
     </div>
     <nav class="main-nav">
+      <button id="theme-toggle" class="icon-button" title="Toggle Dark/Light Mode">
+        <span class="material-symbols-rounded">dark_mode</span>
+      </button>
       <button id="add-zone-btn" class="nav-button">
         <span class="material-symbols-rounded">add_circle</span>
         Add Zone
@@ -71,11 +74,24 @@
 <!-- Preview Overlay -->
 <div id="preview-overlay" class="preview-overlay hidden">
   <div class="preview-content">
-    <button class="close-btn">
-      <span class="material-symbols-rounded">close</span>
-    </button>
-    <h2 id="preview-title">Zone Preview</h2>
-    <div id="preview-grid" class="preview-grid"></div>
+    <div class="preview-header">
+      <h2 id="preview-title">Zone Preview</h2>
+      <div class="preview-actions">
+        <button id="preview-toggle" class="toggle-button" title="Toggle Preview Mode">
+          <span class="material-symbols-rounded">grid_view</span>
+        </button>
+        <button class="close-btn">
+          <span class="material-symbols-rounded">close</span>
+        </button>
+      </div>
+    </div>
+    <div class="preview-body">
+      <!-- Number Preview (default) -->
+      <div id="preview-numbers" class="preview-grid"></div>
+
+      <!-- Grid Preview (initially hidden) -->
+      <div id="preview-grid-view" class="preview-grid-view hidden"></div>
+    </div>
   </div>
 </div>
 
