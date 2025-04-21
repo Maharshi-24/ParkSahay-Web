@@ -1,295 +1,409 @@
+// ParkSahay - Parking Management System
 
-document.getElementById("add-zone-btn").addEventListener("click", addZone);
+// DOM Elements
+const addZoneBtn = document.getElementById('add-zone-btn');
+const zoneCreationArea = document.getElementById('zone-creation-area');
+const zonesDisplay = document.getElementById('zones-display');
+const parkingContainer = document.getElementById('parking-container');
+const previewOverlay = document.getElementById('preview-overlay');
+const previewGrid = document.getElementById('preview-grid');
+const previewTitle = document.getElementById('preview-title');
+const gridPreview = document.getElementById('grid-preview');
+const gridRows = document.getElementById('grid-rows');
+const gridCols = document.getElementById('grid-cols');
+const zoneName = document.getElementById('zone-name');
+const createZoneBtn = document.getElementById('create-zone-btn');
+const cancelCreateBtn = document.getElementById('cancel-create');
 
-function addSlotToZone(zone) {
-  let emptyCell = zone.querySelector(".cell:not(:has(.slot))");
+// Event Listeners
+addZoneBtn.addEventListener('click', showZoneCreationArea);
+cancelCreateBtn.addEventListener('click', hideZoneCreationArea);
+createZoneBtn.addEventListener('click', handleCreateZone);
+gridRows.addEventListener('input', updateGridPreview);
+gridCols.addEventListener('input', updateGridPreview);
+document.querySelector('.close-btn').addEventListener('click', hidePreviewOverlay);
 
-  if (!emptyCell) {
-    const newCell = document.createElement("div");
-    newCell.className = "cell";
-    setupCellDropzone(newCell);
-    zone.querySelector(".grid").appendChild(newCell);
-    emptyCell = newCell;
-  }
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', initialize);
 
-  // 🔢 Get the next number based on how many slots are already in this zone
-  const existingSlots = zone.querySelectorAll(".slot");
-  const nextSlotNumber = existingSlots.length + 1;
+/**
+ * Initialize the application
+ */
+function initialize() {
+  // Hide creation area initially
+  hideZoneCreationArea();
 
-  const slot = document.createElement("div");
-  slot.className = "slot available";
-  slot.setAttribute("draggable", "true");
-  slot.textContent = nextSlotNumber;
+  // Hide preview overlay
+  hidePreviewOverlay();
 
-  emptyCell.appendChild(slot);
-  attachSlotEvents(slot);
-  updateZoneCounts();
-  saveToLocalStorage();
+  // Initialize grid preview
+  updateGridPreview();
+
+  // Load saved zones
+  loadFromLocalStorage();
 }
-function addZone() {
-  const zoneName = prompt("Enter Zone Name:");
-  if (!zoneName) return;
-  
-  const layout = prompt("Enter grid layout (e.g., 5x5 or 10x4):");
-  const [rows, cols] = layout.split("x").map(Number);
-  if (!rows || !cols || rows < 1 || cols < 1) {
-    alert("Invalid layout. Use format like 5x5 or 10x4.");
+
+/**
+ * Show the zone creation area
+ */
+function showZoneCreationArea() {
+  zoneCreationArea.classList.remove('hidden');
+  zonesDisplay.style.opacity = '0.5';
+  zoneName.focus();
+}
+
+/**
+ * Hide the zone creation area
+ */
+function hideZoneCreationArea() {
+  zoneCreationArea.classList.add('hidden');
+  zonesDisplay.style.opacity = '1';
+
+  // Reset form
+  zoneName.value = '';
+  gridRows.value = '3';
+  gridCols.value = '3';
+  updateGridPreview();
+}
+
+/**
+ * Update the grid preview based on input dimensions
+ */
+function updateGridPreview() {
+  const rows = parseInt(gridRows.value) || 3;
+  const cols = parseInt(gridCols.value) || 3;
+
+  gridPreview.innerHTML = '';
+  gridPreview.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+
+  for (let i = 0; i < rows * cols; i++) {
+    const cell = document.createElement('div');
+    cell.className = 'preview-cell';
+    gridPreview.appendChild(cell);
+  }
+}
+
+/**
+ * Handle the create zone button click
+ */
+function handleCreateZone() {
+  const name = zoneName.value.trim();
+  const rows = parseInt(gridRows.value) || 3;
+  const cols = parseInt(gridCols.value) || 3;
+
+  if (!name) {
+    alert('Please enter a zone name');
+    zoneName.focus();
     return;
   }
 
+  if (rows < 1 || cols < 1 || rows > 20 || cols > 20) {
+    alert('Grid dimensions must be between 1 and 20');
+    return;
+  }
+
+  createZone(name, rows, cols);
+  hideZoneCreationArea();
+}
+
+/**
+ * Create a new parking zone
+ * @param {string} name - Zone name
+ * @param {number} rows - Number of rows
+ * @param {number} cols - Number of columns
+ */
+function createZone(name, rows, cols) {
   const gridSize = rows * cols;
-  const zone = document.createElement("div");
-  zone.className = "zone";
+  const zone = document.createElement('div');
+  zone.className = 'zone';
 
+  // Create zone structure
   zone.innerHTML = `
-  <div class="zone-header">
-    <h2>${zoneName}</h2>
-    <span class="count">0 / ${gridSize}</span>
-    <button class="delete-zone-btn" style="margin-left: 10px;">❌</button>
-  </div>
-  <button class="add-slot-btn">Add Slot</button>
-  <button class="preview-zone-btn">👁️ Preview</button>
-  <div class="grid"></div>
-`;
+    <div class="zone-header">
+      <h2>${name}</h2>
+      <div class="zone-actions">
+        <span class="count">0 / ${gridSize}</span>
+        <button class="zone-btn preview-zone-btn" title="Preview Available Slots">
+          <span class="material-symbols-rounded">visibility</span>
+        </button>
+        <button class="zone-btn delete-zone-btn" title="Delete Zone">
+          <span class="material-symbols-rounded">delete</span>
+        </button>
+      </div>
+    </div>
+    <div class="grid"></div>
+    <div class="zone-controls">
+      <button class="zone-control-btn add-slot-btn">
+        <span class="material-symbols-rounded">add_circle</span>
+        Add Slot
+      </button>
+    </div>
+  `;
 
-  const grid = zone.querySelector(".grid");
+  // Set up grid
+  const grid = zone.querySelector('.grid');
+  grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+
+  // Create empty cells
   for (let i = 0; i < gridSize; i++) {
-    const cell = document.createElement("div");
-    cell.className = "cell";
+    const cell = document.createElement('div');
+    cell.className = 'cell';
     setupCellDropzone(cell);
     grid.appendChild(cell);
   }
 
-  // ➕ Add slot functionality
-  zone.querySelector(".add-slot-btn").addEventListener("click", () => {
+  // Add event listeners
+  zone.querySelector('.add-slot-btn').addEventListener('click', () => {
     addSlotToZone(zone);
   });
 
-  // ❌ Delete zone functionality
-  zone.querySelector(".delete-zone-btn").addEventListener("click", () => {
-    if (confirm("Are you sure you want to delete this zone?")) {
+  zone.querySelector('.delete-zone-btn').addEventListener('click', () => {
+    if (confirm(`Are you sure you want to delete the "${name}" zone?`)) {
       zone.remove();
       saveToLocalStorage();
-      updateZoneCounts();
     }
   });
 
-  document.getElementById("parking-container").appendChild(zone);
+  zone.querySelector('.preview-zone-btn').addEventListener('click', () => {
+    showZonePreview(zone);
+  });
 
+  // Add to container
+  parkingContainer.appendChild(zone);
   updateZoneCounts();
   saveToLocalStorage();
 }
 
+/**
+ * Add a parking slot to a zone
+ * @param {HTMLElement} zone - The zone element
+ */
+function addSlotToZone(zone) {
+  // Find an empty cell
+  let emptyCell = Array.from(zone.querySelectorAll('.cell')).find(cell => !cell.querySelector('.slot'));
 
-        function attachSlotEvents(slot) {
-          // Toggle color on click
-          slot.addEventListener("click", () => {
-            slot.classList.toggle("occupied");
-            slot.classList.toggle("available");
-            updateZoneCounts();
-            saveToLocalStorage();
-          });
-        
-          // Remove on right click
-          slot.addEventListener("contextmenu", (e) => {
-            e.preventDefault();
-            if (confirm("Remove this slot?")) {
-              slot.remove();
-              updateZoneCounts();
-              saveToLocalStorage();
-            }
-          });
-        
-          // Drag functionality
-          slot.addEventListener("dragstart", (e) => {
-            e.dataTransfer.setData("text/plain", slot.outerHTML);
-            setTimeout(() => slot.remove(), 0);
-          });
-        }
-        
-        // Drag and drop setup
-        function setupCellDropzones() {
-            document.querySelectorAll(".cell").forEach(setupCellDropzone);
-        }
-
-        function setupCellDropzone(cell) {
-          cell.addEventListener("dragover", e => e.preventDefault());
-          cell.addEventListener("drop", e => {
-            e.preventDefault();
-            if (!cell.querySelector(".slot")) {
-              const data = e.dataTransfer.getData("text/plain");
-              cell.innerHTML = data;
-              const droppedSlot = cell.querySelector(".slot");
-              attachSlotEvents(droppedSlot);
-              updateZoneCounts();
-              saveToLocalStorage();
-            }
-          });
-        }
-
-        
-        // Count updates
-        function updateZoneCounts() {
-          document.querySelectorAll(".zone").forEach(zone => {
-            const total = zone.querySelectorAll(".cell").length;
-            const available = zone.querySelectorAll(".slot.available").length;
-            const countSpan = zone.querySelector(".count");
-            countSpan.textContent = `${available} / ${total}`;
-          });
-        }
-        
-        // Save layout to localStorage
-        function saveToLocalStorage() {
-          const zoneData = [];
-        
-          document.querySelectorAll(".zone").forEach(zone => {
-            const zoneName = zone.querySelector("h2").textContent.trim();
-            const cells = Array.from(zone.querySelectorAll(".cell")).map(cell => {
-              const slot = cell.querySelector(".slot");
-              if (slot) {
-                return {
-                  number: slot.textContent.trim(),
-                  type: slot.classList.contains("occupied") ? "occupied" : "available"
-                };
-              } else {
-                return null;
-              }
-            });
-        
-            zoneData.push({ name: zoneName, cells });
-          });
-        
-          localStorage.setItem("zones", JSON.stringify(zoneData));
-        }
-        
-        // Load from localStorage
-        function loadFromLocalStorage() {
-          const saved = JSON.parse(localStorage.getItem("zones"));
-          if (!saved) return;
-                
-          const container = document.getElementById("parking-container");
-          container.innerHTML = "";
-                
-          saved.forEach(zone => {
-            const zoneEl = document.createElement("div");
-            zoneEl.className = "zone";
-        
-            zoneEl.innerHTML = `
-              <div class="zone-header">
-                <h2>${zone.name}</h2>
-                <span class="count"></span>
-                <button class="delete-zone-btn" style="margin-left: 10px;">❌</button>
-              </div>
-              <button class="add-slot-btn">Add Slot</button>
-              <button class="preview-zone-btn">👁️ Preview</button>
-              <div class="grid"></div>
-            `;
-
-            // Add delete button functionality
-            zoneEl.querySelector(".delete-zone-btn").addEventListener("click", () => {
-              if (confirm("Are you sure you want to delete this zone?")) {
-                zoneEl.remove();
-                saveToLocalStorage();
-                updateZoneCounts();
-              }
-            });
-
-
-          
-            const grid = zoneEl.querySelector(".grid");
-            zone.cells.forEach(cellData => {
-              const cell = document.createElement("div");
-              cell.className = "cell";
-            
-              if (cellData) {
-                const slot = document.createElement("div");
-                slot.className = `slot ${cellData.type}`;
-                slot.setAttribute("draggable", "true");
-                slot.textContent = cellData.number;
-                cell.appendChild(slot);
-                attachSlotEvents(slot);
-              }
-          
-              // 👉 Setup each cell to accept drops
-              setupCellDropzone(cell);
-          
-              grid.appendChild(cell);
-            });
-        
-            // 👉 Add event listener for Add Slot button for each loaded zone
-            zoneEl.querySelector(".add-slot-btn").addEventListener("click", () => {
-              addSlotToZone(zoneEl);
-            });
-        
-            container.appendChild(zoneEl);
-          });
-      
-          updateZoneCounts();
-        }
-
-        document.addEventListener("click", function(e) {
-          if (e.target.classList.contains("preview-zone-btn")) {
-            const zone = e.target.closest(".zone");
-            const zoneName = zone.querySelector("h2").textContent;
-            const availableSlots = zone.querySelectorAll(".slot.available");
-          
-            document.getElementById("preview-title").textContent = `${zoneName} – ${availableSlots.length} Available`;
-            document.getElementById("preview-overlay").style.display = "flex";
-          
-            const previewGrid = document.getElementById("preview-grid");
-            previewGrid.innerHTML = ""; // clear old
-          
-            availableSlots.forEach(slot => {
-              const div = document.createElement("div");
-              div.textContent = slot.textContent;
-              div.style.fontSize = "24px";
-              div.style.textAlign = "center";
-              div.style.padding = "20px";
-              div.style.border = "1px solid white";
-              previewGrid.appendChild(div);
-            });
-          
-            document.getElementById("preview-overlay").style.display = "flex";
-          }
-        
-          if (e.target.classList.contains("close-btn")) {
-            document.getElementById("preview-overlay").style.display = "none";
-          }
-        });
-
-        
-        // Helper: to setup drag drop for individual cell
-        function setupCellDropzone(cell) {
-          cell.addEventListener("dragover", e => e.preventDefault());
-          cell.addEventListener("drop", e => {
-            e.preventDefault();
-            if (!cell.querySelector(".slot")) {
-              const data = e.dataTransfer.getData("text/plain");
-              cell.innerHTML = data;
-              const droppedSlot = cell.querySelector(".slot");
-              attachSlotEvents(droppedSlot);
-              updateZoneCounts();
-              saveToLocalStorage();
-            }
-          });
-        }
-        
-        // Init on load
-        document.addEventListener("DOMContentLoaded", () => {
-  // Make sure preview is hidden on load
-  document.getElementById("preview-overlay").style.display = "none";
-  
-  loadFromLocalStorage();
-
-  if (!localStorage.getItem("zones")) {
-    document.querySelectorAll(".slot").forEach(attachSlotEvents);
-    document.querySelectorAll(".cell").forEach(setupCellDropzone);
-    document.querySelectorAll(".add-slot-btn").forEach(btn => {
-      btn.addEventListener("click", () => {
-        const zone = btn.closest(".zone");
-        addSlotToZone(zone);
-      });
-    });
-    updateZoneCounts();
+  if (!emptyCell) {
+    alert('No empty cells available. All parking slots are filled.');
+    return;
   }
-});
+
+  // Get the next slot number
+  const existingSlots = zone.querySelectorAll('.slot');
+  const nextSlotNumber = existingSlots.length + 1;
+
+  // Create the slot
+  const slot = document.createElement('div');
+  slot.className = 'slot available';
+  slot.setAttribute('draggable', 'true');
+  slot.textContent = nextSlotNumber;
+
+  // Add to cell
+  emptyCell.appendChild(slot);
+  attachSlotEvents(slot);
+
+  // Update UI
+  updateZoneCounts();
+  saveToLocalStorage();
+}
+
+/**
+ * Attach events to a slot element
+ * @param {HTMLElement} slot - The slot element
+ */
+function attachSlotEvents(slot) {
+  // Toggle availability on click
+  slot.addEventListener('click', () => {
+    slot.classList.toggle('occupied');
+    slot.classList.toggle('available');
+    updateZoneCounts();
+    saveToLocalStorage();
+  });
+
+  // Remove on right-click
+  slot.addEventListener('contextmenu', (e) => {
+    e.preventDefault();
+    if (confirm('Remove this parking slot?')) {
+      slot.remove();
+      updateZoneCounts();
+      saveToLocalStorage();
+    }
+  });
+
+  // Drag functionality
+  slot.addEventListener('dragstart', (e) => {
+    e.dataTransfer.setData('text/plain', slot.outerHTML);
+    slot.classList.add('dragging');
+    setTimeout(() => {
+      slot.remove();
+      updateZoneCounts();
+      saveToLocalStorage();
+    }, 0);
+  });
+}
+
+/**
+ * Set up a cell as a drop zone for slots
+ * @param {HTMLElement} cell - The cell element
+ */
+function setupCellDropzone(cell) {
+  cell.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    cell.classList.add('drag-over');
+  });
+
+  cell.addEventListener('dragleave', () => {
+    cell.classList.remove('drag-over');
+  });
+
+  cell.addEventListener('drop', (e) => {
+    e.preventDefault();
+    cell.classList.remove('drag-over');
+
+    if (!cell.querySelector('.slot')) {
+      const data = e.dataTransfer.getData('text/plain');
+      cell.innerHTML = data;
+      const droppedSlot = cell.querySelector('.slot');
+      droppedSlot.classList.remove('dragging');
+      attachSlotEvents(droppedSlot);
+      updateZoneCounts();
+      saveToLocalStorage();
+    }
+  });
+}
+
+/**
+ * Update the count displays for all zones
+ */
+function updateZoneCounts() {
+  document.querySelectorAll('.zone').forEach(zone => {
+    const total = zone.querySelectorAll('.cell').length;
+    const available = zone.querySelectorAll('.slot.available').length;
+    const countSpan = zone.querySelector('.count');
+    countSpan.textContent = `${available} / ${total}`;
+  });
+}
+
+/**
+ * Show the preview overlay for a zone
+ * @param {HTMLElement} zone - The zone element
+ */
+function showZonePreview(zone) {
+  const zoneName = zone.querySelector('h2').textContent;
+  const availableSlots = zone.querySelectorAll('.slot.available');
+
+  previewTitle.textContent = `${zoneName} - ${availableSlots.length} Available Slots`;
+  previewGrid.innerHTML = '';
+
+  if (availableSlots.length === 0) {
+    const message = document.createElement('p');
+    message.textContent = 'No available parking slots in this zone.';
+    message.style.textAlign = 'center';
+    message.style.padding = '2rem';
+    message.style.color = '#777';
+    previewGrid.appendChild(message);
+  } else {
+    availableSlots.forEach(slot => {
+      const slotClone = document.createElement('div');
+      slotClone.className = 'slot available';
+      slotClone.textContent = slot.textContent;
+      previewGrid.appendChild(slotClone);
+    });
+  }
+
+  previewOverlay.classList.remove('hidden');
+}
+
+/**
+ * Hide the preview overlay
+ */
+function hidePreviewOverlay() {
+  previewOverlay.classList.add('hidden');
+}
+
+/**
+ * Save all zones to localStorage
+ */
+function saveToLocalStorage() {
+  const zoneData = [];
+
+  document.querySelectorAll('.zone').forEach(zone => {
+    const zoneName = zone.querySelector('h2').textContent.trim();
+    const grid = zone.querySelector('.grid');
+
+    // Get grid dimensions
+    let cols = 3; // Default
+    const gridStyle = grid.style.gridTemplateColumns;
+    if (gridStyle) {
+      const match = gridStyle.match(/repeat\((\d+)/i);
+      if (match && match[1]) {
+        cols = parseInt(match[1]);
+      }
+    }
+
+    // Get cell data
+    const cells = Array.from(zone.querySelectorAll('.cell')).map(cell => {
+      const slot = cell.querySelector('.slot');
+      if (slot) {
+        return {
+          number: slot.textContent.trim(),
+          type: slot.classList.contains('occupied') ? 'occupied' : 'available'
+        };
+      } else {
+        return null;
+      }
+    });
+
+    // Calculate rows
+    const rows = Math.ceil(cells.length / cols);
+
+    zoneData.push({
+      name: zoneName,
+      cells,
+      cols,
+      rows
+    });
+  });
+
+  localStorage.setItem('zones', JSON.stringify(zoneData));
+}
+
+/**
+ * Load zones from localStorage
+ */
+function loadFromLocalStorage() {
+  const saved = JSON.parse(localStorage.getItem('zones'));
+  if (!saved || !saved.length) return;
+
+  parkingContainer.innerHTML = '';
+
+  saved.forEach(zone => {
+    // Get dimensions
+    const cols = zone.cols || 3;
+    const rows = zone.rows || Math.ceil((zone.cells?.length || 0) / cols);
+
+    // Create zone
+    createZone(zone.name, rows, cols);
+
+    // Get the created zone
+    const zoneEl = parkingContainer.lastElementChild;
+    const cells = zoneEl.querySelectorAll('.cell');
+
+    // Populate cells with saved data
+    if (zone.cells && zone.cells.length > 0) {
+      zone.cells.forEach((cellData, index) => {
+        if (index < cells.length && cellData) {
+          const cell = cells[index];
+          const slot = document.createElement('div');
+          slot.className = `slot ${cellData.type}`;
+          slot.setAttribute('draggable', 'true');
+          slot.textContent = cellData.number;
+          cell.appendChild(slot);
+          attachSlotEvents(slot);
+        }
+      });
+    }
+
+    // Update counts
+    updateZoneCounts();
+  });
+}
