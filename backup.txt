@@ -1,0 +1,690 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Parking Zones</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      background: #1e1e2f;
+      color: #fff;
+      margin: 0;
+      padding: 2rem;
+    }
+
+    #add-zone-btn {
+      padding: 10px 20px;
+      background: #27ae60;
+      border: none;
+      color: white;
+      font-weight: bold;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-bottom: 20px;
+    }
+
+    .container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 2rem;
+    }
+
+    .zone {
+      background-color: #2c3e50;
+      padding: 1rem;
+      border-radius: 10px;
+      width: 410px;
+    }
+
+    .zone-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 0.5rem;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .slot {
+      background-color: #16a085;
+      padding: 10px;
+      border-radius: 8px;
+      text-align: center;
+      font-weight: bold;
+      cursor: move;
+      user-select: none;
+    }
+
+    .slot.available {
+      background-color: #1abc9c;
+    }
+    .slot.occupied {
+        background-color: #e74c3c;
+    }  
+    .slot.dragging {
+      opacity: 0.5;
+    }
+  </style>
+</head>
+<body>
+
+<button id="add-zone-btn">➕ Add Zone</button>
+<div class="container" id="parking-container"></div>
+
+<script>
+  function setupDraggable(zoneElement, zoneName) {
+  const slots = zoneElement.querySelectorAll(".slot");
+  let draggedSlot = null;
+
+  const saved = JSON.parse(localStorage.getItem(`zone-${zoneName}`));
+  if (saved && saved.length === slots.length) {
+  slots.forEach((slot, i) => {
+    const data = saved[i];
+    if (typeof data === "string") {
+      slot.innerText = data;
+      slot.classList.add("available");
+    } else {
+      slot.innerText = data.text;
+      if (data.occupied) {
+        slot.classList.remove("available");
+        slot.classList.add("occupied");
+      } else {
+        slot.classList.remove("occupied");
+        slot.classList.add("available");
+      }
+    }
+  });
+}
+
+  slots.forEach(slot => {
+    slot.addEventListener("click", () => {
+      slot.classList.toggle("occupied");
+      slot.classList.toggle("available");
+      saveSlotOrder(zoneElement, zoneName);
+    });
+
+    slot.addEventListener("dragstart", () => {
+      draggedSlot = slot;
+      slot.classList.add("dragging");
+    });
+
+    slot.addEventListener("dragend", () => {
+      slot.classList.remove("dragging");
+      draggedSlot = null;
+      saveSlotOrder(zoneElement, zoneName);
+    });
+
+    slot.addEventListener("dragover", e => e.preventDefault());
+
+    slot.addEventListener("drop", e => {
+      e.preventDefault();
+      if (draggedSlot && draggedSlot !== slot) {
+        const tempText = slot.innerText;
+        const tempClass = slot.className;
+
+        slot.innerText = draggedSlot.innerText;
+        slot.className = draggedSlot.className;
+
+        draggedSlot.innerText = tempText;
+        draggedSlot.className = tempClass;
+
+        saveSlotOrder(zoneElement, zoneName);
+      }
+    });
+  });
+}
+
+
+function saveSlotOrder(zoneElement, zoneName) {
+  const slots = zoneElement.querySelectorAll(".slot");
+  const order = Array.from(slots).map(slot => ({
+    text: slot.innerText,
+    occupied: slot.classList.contains("occupied")
+  }));
+  localStorage.setItem(`zone-${zoneName}`, JSON.stringify(order));
+}
+
+
+  function addZone(zoneName, slotCount, isInitialLoad = false) {
+    const container = document.getElementById("parking-container");
+
+    const zone = document.createElement("div");
+    zone.classList.add("zone");
+    zone.setAttribute("data-zone", zoneName);
+
+    const header = document.createElement("div");
+    header.className = "zone-header";
+    header.innerHTML = `<h2>${zoneName}</h2><span class="count">0 / ${slotCount}</span>`;
+
+    const grid = document.createElement("div");
+    grid.className = "grid";
+
+    for (let i = 1; i <= slotCount; i++) {
+      const slot = document.createElement("div");
+      slot.className = "slot available";
+      slot.setAttribute("draggable", "true");
+      slot.innerText = i;
+      grid.appendChild(slot);
+    }
+
+    zone.appendChild(header);
+    zone.appendChild(grid);
+    container.appendChild(zone);
+
+    setupDraggable(zone, zoneName);
+
+    if (!isInitialLoad) {
+      saveZoneInfo(zoneName, slotCount);
+    }
+  }
+
+  function saveZoneInfo(zoneName, slotCount) {
+    const zones = JSON.parse(localStorage.getItem("zones")) || [];
+    if (!zones.find(z => z.name === zoneName)) {
+      zones.push({ name: zoneName, slots: slotCount });
+      localStorage.setItem("zones", JSON.stringify(zones));
+    }
+  }
+
+  function loadZonesFromStorage() {
+    const savedZones = JSON.parse(localStorage.getItem("zones")) || [];
+    savedZones.forEach(z => addZone(z.name, z.slots, true));
+  }
+
+  document.getElementById("add-zone-btn").addEventListener("click", () => {
+    const name = prompt("Enter Zone Name (e.g. Zone C):");
+    const count = parseInt(prompt("How many slots?"), 10);
+
+    if (!name || isNaN(count) || count <= 0) {
+      alert("Invalid input");
+      return;
+    }
+
+    addZone(name, count);
+  });
+
+  window.addEventListener("DOMContentLoaded", () => {
+    loadZonesFromStorage();
+  });
+</script>
+
+</body>
+</html>
+
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400..900&display=swap" rel="stylesheet">
+
+
+      
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo">
+                <h1>ParkSahay</h1>
+                <span>Your One Stop Parking Solution </span>
+            </div>
+            <nav>
+                <a href="#home">Home</a>
+                <a href="#about">About</a>
+                <a href="#contact">Contact</a>
+            </nav>
+        </header>
+        <div class="button"><button id="add-zone-btn">➕ Add Zone</button> <br><br></div>
+        <div id = "parking-container">   
+        <div class="zone">
+            <div class="zone-header">
+              <h2>Anviksha</h2>
+              <span class="count">14 / 24</span>
+            </div>
+            <div class="grid">
+              <!-- Zone A slots -->
+              <div class="slot available" draggable="true">1</div>
+              <div class="slot available" draggable="true">2</div>
+              <div class="slot available" draggable="true">3</div>
+              <div class="slot occupied" draggable="true">4</div>
+              <div class="slot occupied" draggable="true">5</div>
+              <div class="slot available" draggable="true" draggable="true">6</div>
+      
+              <div class="slot available" draggable="true">7</div>
+              <div class="slot available" draggable="true">8</div>
+              <div class="slot available" draggable="true">9</div>
+              <div class="slot available" draggable="true">10</div>
+              <div class="slot available" draggable="true">11</div>
+              <div class="slot available" draggable="true">12</div>
+      
+              <div class="slot occupied" draggable="true">13</div>
+              <div class="slot available" draggable="true">14</div>
+              <div class="slot available" draggable="true">15</div>
+              <div class="slot occupied" draggable="true">16</div>
+              <div class="slot available" draggable="true">17</div>
+              <div class="slot occupied" draggable="true">18</div>
+      
+              <div class="slot occupied" draggable="true">19</div>
+              <div class="slot occupied" draggable="true">20</div>
+              <div class="slot occupied" draggable="true">21</div>
+              <div class="slot available" draggable="true">22</div>
+              <div class="slot available" draggable="true">23</div>
+              <div class="slot occupied" draggable="true">24</div>
+            </div>
+          </div>
+      
+          <div class="zone">
+            <div class="zone-header">
+              <h2> SOM </h2>
+              <span class="count">12 / 24</span>
+            </div>
+            <div class="grid">
+              <!-- Zone B slots -->
+              <div class="slot occupied" draggable="true">25</div>
+              <div class="slot occupied" draggable="true">26</div>
+              <div class="slot available" draggable="true">27</div>
+              <div class="slot occupied" draggable="true">28</div>
+              <div class="slot occupied" draggable="true">29</div>
+              <div class="slot occupied" draggable="true">30</div>
+      
+              <div class="slot occupied" draggable="true">31</div>
+              <div class="slot available" draggable="true">32</div>
+              <div class="slot available" draggable="true">33</div>
+              <div class="slot occupied" draggable="true">34</div>
+              <div class="slot occupied" draggable="true">35</div>
+              <div class="slot available" draggable="true">36</div>
+      
+              <div class="slot available" draggable="true">37</div>
+              <div class="slot available" draggable="true">38</div>
+              <div class="slot occupied" draggable="true">39</div>
+              <div class="slot available" draggable="true">40</div>
+              <div class="slot available" draggable="true">41</div>
+              <div class="slot available" draggable="true">42</div>
+      
+              <div class="slot occupied" draggable="true">43</div>
+              <div class="slot available" draggable="true">44</div>
+              <div class="slot available" draggable="true">45</div>
+              <div class="slot available" draggable="true">46</div>
+              <div class="slot available" draggable="true">47</div>
+              <div class="slot available" draggable="true">48</div>
+            </div>
+        </div>
+        </div>
+        
+    </div>
+
+
+    <script>
+        function setupDraggable(zoneElement, zoneName) {
+          const slots = zoneElement.querySelectorAll(".slot");
+          let draggedSlot = null;
+      
+          // Restore saved order
+          const saved = JSON.parse(localStorage.getItem(`zone-${zoneName}`));
+          if (saved && saved.length === slots.length) {
+            slots.forEach((slot, i) => slot.innerText = saved[i]);
+          }
+      
+          slots.forEach(slot => {
+            slot.addEventListener("dragstart", () => {
+              draggedSlot = slot;
+              slot.classList.add("dragging");
+            });
+      
+            slot.addEventListener("dragend", () => {
+              slot.classList.remove("dragging");
+              draggedSlot = null;
+              saveSlotOrder(zoneElement, zoneName);
+            });
+      
+            slot.addEventListener("dragover", e => e.preventDefault());
+      
+            slot.addEventListener("drop", e => {
+              e.preventDefault();
+              if (draggedSlot && draggedSlot !== slot) {
+                const temp = slot.innerText;
+                slot.innerText = draggedSlot.innerText;
+                draggedSlot.innerText = temp;
+              }
+            });
+          });
+        }
+      
+        function saveSlotOrder(zoneElement, zoneName) {
+          const slots = zoneElement.querySelectorAll(".slot");
+          const order = Array.from(slots).map(slot => slot.innerText);
+          localStorage.setItem(`zone-${zoneName}`, JSON.stringify(order));
+        }
+      
+        function addZone(zoneName, slotCount, isInitialLoad = false) {
+          const container = document.getElementById("parking-container");
+      
+          const zone = document.createElement("div");
+          zone.classList.add("zone");
+          zone.setAttribute("data-zone", zoneName);
+      
+          const header = document.createElement("div");
+          header.className = "zone-header";
+          header.innerHTML = `<h2>${zoneName}</h2><span class="count">0 / ${slotCount}</span>`;
+      
+          const grid = document.createElement("div");
+          grid.className = "grid";
+      
+          for (let i = 1; i <= slotCount; i++) {
+            const slot = document.createElement("div");
+            slot.className = "slot available";
+            slot.setAttribute("draggable", "true");
+            slot.innerText = i;
+            grid.appendChild(slot);
+          }
+      
+          zone.appendChild(header);
+          zone.appendChild(grid);
+          container.appendChild(zone);
+      
+          setupDraggable(zone, zoneName);
+      
+          if (!isInitialLoad) {
+            saveZoneInfo(zoneName, slotCount);
+          }
+        }
+      
+        function saveZoneInfo(zoneName, slotCount) {
+          const zones = JSON.parse(localStorage.getItem("zones")) || [];
+          if (!zones.find(z => z.name === zoneName)) {
+            zones.push({ name: zoneName, slots: slotCount });
+            localStorage.setItem("zones", JSON.stringify(zones));
+          }
+        }
+      
+        function loadZonesFromStorage() {
+          const savedZones = JSON.parse(localStorage.getItem("zones")) || [];
+          savedZones.forEach(z => addZone(z.name, z.slots, true));
+        }
+      
+        document.getElementById("add-zone-btn").addEventListener("click", () => {
+          const name = prompt("Enter Zone Name (e.g. Zone C):");
+          const count = parseInt(prompt("How many slots?"), 10);
+      
+          if (!name || isNaN(count) || count <= 0) {
+            alert("Invalid input");
+            return;
+          }
+      
+          addZone(name, count);
+        });
+      
+        window.addEventListener("DOMContentLoaded", () => {
+          loadZonesFromStorage();
+        });
+      </script>
+                       
+      
+</body>
+</html>
+
+
+<script>
+let globalSlotId = 1; // Start at 1 or continue from last known slot number
+let nextSlotNumber = 1; // Update if your last slot number is higher
+document.getElementById("add-zone-btn").addEventListener("click", addZone);
+
+function addSlotToZone(zone) {
+    const emptyCell = zone.querySelector(".grid .cell:not(:has(.slot))");
+    if (!emptyCell) {
+      alert("No empty spaces left in this zone.");
+      return;
+    }           
+    // Create slot div
+    const slot = document.createElement("div");
+    slot.className = "slot available";
+    slot.draggable = true;
+    slot.textContent = globalSlotId++;          
+    // Add events
+    attachSlotEvents(slot);         
+    // Insert into empty cell
+    emptyCell.appendChild(slot);            
+    updateZoneCounts();
+    saveToLocalStorage();
+}
+
+function addZone() {
+    const zoneName = prompt("Enter Zone Name:");
+    if (!zoneName) return;          
+    const layout = prompt("Enter grid layout (e.g., 5x5 or 10x4):");
+    const [rows, cols] = layout.split("x").map(Number);         
+    if (!rows || !cols || rows < 1 || cols < 1) {
+      alert("Invalid layout. Use format like 5x5 or 10x4.");
+      return;
+    }           
+    const gridSize = rows * cols;
+    const zone = document.createElement("div");
+    zone.className = "zone";            
+    zone.innerHTML = `
+      <div class="zone-header">
+        <h2>${zoneName}</h2>
+        <span class="count">0 / ${gridSize}</span>
+      </div>
+      <button class="add-slot-btn">Add Slot</button>
+      <div class="grid"></div>
+    `;          
+    const grid = zone.querySelector(".grid");           
+    // Add empty cells
+    for (let i = 0; i < gridSize; i++) {
+      const cell = document.createElement("div");
+      cell.className = "cell";          
+      // Enable drag/drop
+      cell.addEventListener("dragover", e => e.preventDefault());
+      cell.addEventListener("drop", e => {
+        e.preventDefault();
+        if (!cell.querySelector(".slot")) {
+          const data = e.dataTransfer.getData("text/plain");
+          cell.innerHTML = data;
+          const droppedSlot = cell.querySelector(".slot");
+          attachSlotEvents(droppedSlot);
+          updateZoneCounts();
+          saveToLocalStorage();
+        }
+      });           
+      grid.appendChild(cell);
+    }           
+    // Append zone to container
+    document.getElementById("parking-container").appendChild(zone);         
+    // Add slot button functionality
+    zone.querySelector(".add-slot-btn").addEventListener("click", () => {
+      addSlotToZone(zone);
+    });         
+    updateZoneCounts();
+    saveToLocalStorage();
+}
+
+function attachSlotEvents(slot) {
+  // Toggle color on click
+  slot.addEventListener("click", () => {
+    slot.classList.toggle("occupied");
+    slot.classList.toggle("available");
+    updateZoneCounts();
+    saveToLocalStorage();
+  });
+
+  // Remove on right click
+  slot.addEventListener("contextmenu", (e) => {
+    e.preventDefault();
+    if (confirm("Remove this slot?")) {
+      slot.remove();
+      updateZoneCounts();
+      saveToLocalStorage();
+    }
+  });
+
+  // Drag functionality
+  slot.addEventListener("dragstart", (e) => {
+    e.dataTransfer.setData("text/plain", slot.outerHTML);
+    setTimeout(() => slot.remove(), 0);
+  });
+}
+
+// Drag and drop setup
+function setupCellDropzones() {
+  document.querySelectorAll(".cell").forEach(cell => {
+    cell.addEventListener("dragover", e => e.preventDefault());
+    cell.addEventListener("drop", e => {
+      e.preventDefault();
+      if (!cell.querySelector(".slot")) {
+        const data = e.dataTransfer.getData("text/plain");
+        cell.innerHTML = data;
+        const droppedSlot = cell.querySelector(".slot");
+        attachSlotEvents(droppedSlot);
+        updateZoneCounts();
+        saveToLocalStorage();
+      }
+    });
+  });
+}
+
+// Add Slot button logic
+function setupAddSlotButtons() {
+  document.querySelectorAll(".add-slot-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const zone = btn.closest(".zone");
+      let emptyCell = zone.querySelector(".cell:not(:has(.slot))");
+
+        if (!emptyCell) {
+          // Create new cell and add to grid
+          const newCell = document.createElement("div");
+          newCell.className = "cell";
+          zone.querySelector(".grid").appendChild(newCell);
+          emptyCell = newCell;
+        
+          // Attach drag drop to new cell
+          newCell.addEventListener("dragover", e => e.preventDefault());
+          newCell.addEventListener("drop", e => {
+            e.preventDefault();
+            if (!newCell.querySelector(".slot")) {
+              const data = e.dataTransfer.getData("text/plain");
+              newCell.innerHTML = data;
+              const droppedSlot = newCell.querySelector(".slot");
+              attachSlotEvents(droppedSlot);
+              updateZoneCounts();
+              saveToLocalStorage();
+            }
+          });
+        }
+
+        // Add slot in the cell
+        const newSlot = document.createElement("div");
+        newSlot.className = "slot available";
+        newSlot.setAttribute("draggable", "true");
+        newSlot.textContent = nextSlotNumber++;
+        emptyCell.appendChild(newSlot);
+        attachSlotEvents(newSlot);
+        updateZoneCounts();
+        saveToLocalStorage();
+
+    });
+  });
+}
+
+// Count updates
+function updateZoneCounts() {
+  document.querySelectorAll(".zone").forEach(zone => {
+    const total = zone.querySelectorAll(".cell").length;
+    const available = zone.querySelectorAll(".slot.available").length;
+    const countSpan = zone.querySelector(".count");
+    countSpan.textContent = `${available} / ${total}`;
+  });
+}
+
+// Save layout to localStorage
+function saveToLocalStorage() {
+  const zoneData = [];
+
+  document.querySelectorAll(".zone").forEach(zone => {
+    const zoneName = zone.querySelector("h2").textContent.trim();
+    const cells = Array.from(zone.querySelectorAll(".cell")).map(cell => {
+      const slot = cell.querySelector(".slot");
+      if (slot) {
+        return {
+          number: slot.textContent.trim(),
+          type: slot.classList.contains("occupied") ? "occupied" : "available"
+        };
+      } else {
+        return null;
+      }
+    });
+
+    zoneData.push({ name: zoneName, cells });
+  });
+
+  localStorage.setItem("zones", JSON.stringify(zoneData));
+}
+
+// Load from localStorage
+function loadFromLocalStorage() {
+  const saved = JSON.parse(localStorage.getItem("zones"));
+  if (!saved) return;
+
+  const container = document.getElementById("parking-container");
+  container.innerHTML = "";
+
+  saved.forEach(zone => {
+    const zoneEl = document.createElement("div");
+    zoneEl.className = "zone";
+
+    zoneEl.innerHTML = `
+      <div class="zone-header">
+        <h2>${zone.name}</h2>
+        <span class="count"></span>
+      </div>
+      <button class="add-slot-btn">Add Slot</button>
+      <div class="grid"></div>
+    `;
+
+    const grid = zoneEl.querySelector(".grid");
+    zone.cells.forEach(cellData => {
+      const cell = document.createElement("div");
+      cell.className = "cell";
+
+      if (cellData) {
+        const slot = document.createElement("div");
+        slot.className = `slot ${cellData.type}`;
+        slot.setAttribute("draggable", "true");
+        slot.textContent = cellData.number;
+        cell.appendChild(slot);
+        attachSlotEvents(slot);
+      }
+
+      grid.appendChild(cell);
+    });
+
+    container.appendChild(zoneEl);
+  });
+
+  setupAddSlotButtons();
+  setupCellDropzones();
+  updateZoneCounts();
+}
+
+// Init on load
+window.addEventListener("DOMContentLoaded", () => {
+  loadFromLocalStorage();
+
+  // If first time (no localStorage), set up existing slots
+  if (!localStorage.getItem("zones")) {
+    document.querySelectorAll(".slot").forEach(attachSlotEvents);
+    setupAddSlotButtons();
+    setupCellDropzones();
+    updateZoneCounts();
+  }
+});
+</script>
