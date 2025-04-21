@@ -341,7 +341,10 @@ function showZonePreview(zone) {
   previewNumbers.appendChild(bigNumber);
 
   // Create grid preview (full grid structure with both available and occupied slots)
-  previewGridView.style.gridTemplateColumns = grid.style.gridTemplateColumns;
+  // Get the number of columns from the original grid
+  const colsMatch = grid.style.gridTemplateColumns.match(/repeat\((\d+)/);
+  const cols = colsMatch ? colsMatch[1] : 3; // Default to 3 if parsing fails
+  previewGridView.style.gridTemplateColumns = `repeat(${cols}, 120px)`;
 
   // Get all cells from the original grid
   const cells = Array.from(grid.querySelectorAll('.cell'));
