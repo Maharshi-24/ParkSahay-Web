@@ -536,7 +536,7 @@ body {
   border-radius: 8px;
   cursor: grab;
   user-select: none;
-  transition: all var(--transition-speed);
+  transition: all 0.3s ease-in-out;
   box-shadow: 0 2px 5px var(--shadow-color);
 }
 
@@ -546,13 +546,15 @@ body {
 }
 
 .slot.available {
-  background-color: var(--slot-available);
-  color: white;
+  background-color: #44ff44;
+  color: #333;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 .slot.occupied {
-  background-color: var(--slot-occupied);
+  background-color: #ff4444;
   color: white;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
 }
 
 .slot.dragging {

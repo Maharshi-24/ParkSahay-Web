@@ -225,15 +225,30 @@ function addSlotToZone(zone) {
   const existingSlots = zone.querySelectorAll('.slot');
   const nextSlotNumber = existingSlots.length + 1;
 
+  // Prompt for device IP
+  const deviceIp = prompt('Enter the device IP address for this slot:');
+  if (!deviceIp) {
+    return; // Cancel if no IP provided
+  }
+
   // Create the slot
   const slot = document.createElement('div');
   slot.className = 'slot available';
   slot.setAttribute('draggable', 'true');
+  slot.setAttribute('data-device-ip', deviceIp);
   slot.textContent = nextSlotNumber;
 
   // Add to cell
   emptyCell.appendChild(slot);
   attachSlotEvents(slot);
+
+  // Subscribe to MQTT topics for this device
+  if (window.mqttClient && mqttClient.isConnected) {
+    mqttClient.subscribe(deviceIp);
+    mqttClient.onDeviceUpdate(deviceIp, (data) => {
+      updateSlotStatus(slot, data);
+    });
+  }
 
   // Update UI
   updateZoneCounts();
@@ -410,7 +425,8 @@ function saveToLocalStorage() {
       if (slot) {
         return {
           number: slot.textContent.trim(),
-          type: slot.classList.contains('occupied') ? 'occupied' : 'available'
+          type: slot.classList.contains('occupied') ? 'occupied' : 'available',
+          deviceIp: slot.getAttribute('data-device-ip')
         };
       } else {
         return null;
@@ -460,9 +476,18 @@ function loadFromLocalStorage() {
           const slot = document.createElement('div');
           slot.className = `slot ${cellData.type}`;
           slot.setAttribute('draggable', 'true');
+          slot.setAttribute('data-device-ip', cellData.deviceIp);
           slot.textContent = cellData.number;
           cell.appendChild(slot);
           attachSlotEvents(slot);
+
+          // Subscribe to MQTT for this device
+          if (window.mqttClient && mqttClient.isConnected && cellData.deviceIp) {
+            mqttClient.subscribe(cellData.deviceIp);
+            mqttClient.onDeviceUpdate(cellData.deviceIp, (data) => {
+              updateSlotStatus(slot, data);
+            });
+          }
         }
       });
     }
@@ -470,4 +495,34 @@ function loadFromLocalStorage() {
     // Update counts
     updateZoneCounts();
   });
+}
+
+/**
+ * Add function to update slot status based on sensor data
+ * @param {HTMLElement} slot - The slot element
+ * @param {Object} data - The sensor data
+ */
+function updateSlotStatus(slot, data) {
+    if (!slot) return;
+    
+    console.log('Updating slot status:', {
+        slotNumber: slot.textContent,
+        deviceIp: slot.getAttribute('data-device-ip'),
+        newStatus: data.value
+    });
+    
+    // Update slot class and color based on sensor value
+    if (data.value === 'low') {
+        slot.classList.remove('available');
+        slot.classList.add('occupied');
+        slot.style.backgroundColor = '#ff4444'; // Red color for occupied
+    } else {
+        slot.classList.remove('occupied');
+        slot.classList.add('available');
+        slot.style.backgroundColor = '#44ff44'; // Green color for available
+    }
+    
+    // Update zone counts
+    updateZoneCounts();
+    saveToLocalStorage();
 }

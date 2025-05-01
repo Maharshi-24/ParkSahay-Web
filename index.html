@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>ParkSahay - Elegant Parking Management</title>
+  <title>ParkSahay - Smart Parking Management</title>
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&display=swap">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;500;600;700&display=swap">
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&display=swap">
@@ -92,7 +92,58 @@
   </div>
 </div>
 
+<!-- Load MQTT library -->
+<script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+
+<!-- Load our clients -->
+<script src="mqtt-client.js"></script>
+<script src="websocket-client.js"></script>
 <script src="script.js"></script>
+
+<script>
+  // WebSocket connection
+  const ws = new WebSocket('ws://localhost:3001');
+  
+  ws.onopen = () => {
+      console.log('Connected to WebSocket server');
+  };
+
+  ws.onmessage = (event) => {
+      try {
+          const data = JSON.parse(event.data);
+          console.log('WebSocket received:', data);
+
+          // Find slot by device ID from the topic
+          const deviceId = data.device || data.topic.split('/')[2];
+          const slots = document.querySelectorAll('.slot');
+          
+          slots.forEach(slot => {
+              if (slot.getAttribute('data-device-ip') === deviceId) {
+                  // Update slot appearance based on sensor value
+                  if (data.value === 'low' || data.relay === 'LOW') {
+                      slot.classList.remove('available');
+                      slot.classList.add('occupied');
+                      slot.style.backgroundColor = '#ff4444'; // Red color
+                  } else {
+                      slot.classList.remove('occupied');
+                      slot.classList.add('available');
+                      slot.style.backgroundColor = '#44ff44'; // Green color
+                  }
+              }
+          });
+      } catch (error) {
+          console.error('Error processing WebSocket message:', error);
+      }
+  };
+
+  ws.onerror = (error) => {
+      console.error('WebSocket error:', error);
+  };
+
+  ws.onclose = () => {
+      console.log('Disconnected from WebSocket server');
+  };
+</script>
 
 </body>
 </html>
